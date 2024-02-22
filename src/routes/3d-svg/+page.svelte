@@ -1,18 +1,30 @@
 <script lang="ts">
+	import 'carbon-components-svelte/css/all.css';
+	import { Slider } from 'carbon-components-svelte';
+
 	import { onMount } from 'svelte';
 
 	let canvasEl: HTMLCanvasElement;
-	const gridSize = 10;
-	const step = Math.PI / gridSize; // Step size in radians, for a full sine wave cycle
+	let gridSize = 10;
+	let maxHeight = 100;
 
 	onMount(() => {
+		draw({ gridSize, maxHeight });
+	});
+
+	$: if(canvasEl) draw({ gridSize, maxHeight });
+
+	function draw({ gridSize = 10, maxHeight = 100 }: { gridSize: number, maxHeight: number}) {
+		const step = Math.PI / gridSize; // Step size in radians, for a full sine wave cycle
 		const ctx = canvasEl.getContext('2d');
 		const width = canvasEl.width;
 		const height = canvasEl.height;
 
-		if (ctx) drawNet({ ctx, width, height });
-		else console.error('Canvas context not found');
-	});
+		if (ctx) {
+			ctx.clearRect(0, 0, width, height);
+			drawNet({ ctx, width, height, gridSize, step, maxHeight});
+		} else console.error('Canvas context not found');
+	}
 
 	// Simple 3D to 2D projection
 	function project({
@@ -53,19 +65,25 @@
 	function drawNet({
 		ctx,
 		width,
-		height
+		height,
+		gridSize,
+		step,
+		maxHeight
 	}: {
 		ctx: CanvasRenderingContext2D;
 		width: number;
 		height: number;
+		gridSize: number;
+		step: number;
+		maxHeight: number;
 	}) {
 		const projectFn = getLoadedProjectFn({ height, width });
 		const drawLine = contextualizeDrawLine(ctx);
 		for (let i = -gridSize; i <= gridSize; i++) {
 			for (let j = -gridSize; j <= gridSize; j++) {
-				const x = i * 20; // Scale for visibility
-				const y = j * 20;
-				const z = Math.sin(i * step) * Math.cos(j * step) * 100; // Scale Z for better visibility
+				const x = i * gridSize; // Scale for visibility
+				const y = j * gridSize;
+				const z = Math.sin(i * step) * Math.cos(j * step) * maxHeight; // Scale Z for better visibility
 
 				// Project 3D point to 2D
 				const p = projectFn(x, y, z);
@@ -73,15 +91,15 @@
 				// Draw points and lines
 				if (i > -gridSize) {
 					// Connect horizontally
-					const prevX = (i - 1) * 20;
-					const prevZ = Math.sin((i - 1) * step) * Math.cos(j * step) * 100;
+					const prevX = (i - 1) * gridSize;
+					const prevZ = Math.sin((i - 1) * step) * Math.cos(j * step) * maxHeight;
 					const prevP = projectFn(prevX, y, prevZ);
 					drawLine(prevP.x, prevP.y, p.x, p.y);
 				}
 				if (j > -gridSize) {
 					// Connect vertically
-					const prevY = (j - 1) * 20;
-					const prevZ = Math.sin(i * step) * Math.cos((j - 1) * step) * 100;
+					const prevY = (j - 1) * gridSize;
+					const prevZ = Math.sin(i * step) * Math.cos((j - 1) * step) * maxHeight;
 					const prevP = projectFn(x, prevY, prevZ);
 					drawLine(prevP.x, prevP.y, p.x, p.y);
 				}
@@ -90,20 +108,35 @@
 	}
 </script>
 
-<h1>Welcome to 3d-art</h1>
-
 <head>
 	<title>3D Fishing Net on Canvas</title>
-	<style>
-		body {
-			display: flex;
-			justify-content: center;
-			margin-top: 50px;
-		}
-		canvas {
-			border: 1px solid black;
-		}
-	</style>
 </head>
 
-<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
+<h1>3D Fishing Net on Canvas</h1>
+<div class="layout">
+	<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
+	<div class="controls">
+		<Slider labelText="Grid Size" fullWidth bind:value={gridSize} min={10} max={100} />
+		<Slider labelText="Max Height" fullWidth bind:value={maxHeight} min={100} max={1000} />
+	</div>
+</div>
+
+<style>
+	.layout {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		margin-top: 50px;
+	}
+
+	.controls {
+		display: flex;
+		flex-direction: column;
+		padding: 0 10%;
+	}
+
+	canvas {
+		margin: 0 auto;
+		display: block;
+	}
+</style>
