@@ -3,6 +3,8 @@
 	import { Dropdown, Slider } from 'carbon-components-svelte';
 	import { onMount } from 'svelte';
 	import { zFnLib, type ZFnLibEntry, type ZFnLibParam } from './waveFns';
+	
+	const PROJECTION_PLANE = 500;
 
 	let canvasEl: HTMLCanvasElement;
 	let gridSize = 15;
@@ -21,7 +23,7 @@
 		const ctx = canvasEl.getContext('2d');
 		const width = canvasEl.width;
 		const height = canvasEl.height;
-		const step = width / gridSize; // Step size in radians, for a full sine wave cycle
+		const step = width / gridSize; 
 
 		if (ctx) {
 			ctx.clearRect(0, 0, width, height);
@@ -29,7 +31,7 @@
 		} else console.error('Canvas context not found');
 	}
 
-	// Simple 3D to 2D projection
+	// 3D to 2D projection
 	function project({
 		x,
 		y,
@@ -43,7 +45,7 @@
 		height: number;
 		width: number;
 	}) {
-		const scale = 500 / (500 + z);
+		const scale = PROJECTION_PLANE / (PROJECTION_PLANE + z);
 		const x2D = x * scale + width / 2;
 		const y2D = y * scale + height / 2;
 		return { x: x2D, y: y2D };
