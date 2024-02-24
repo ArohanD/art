@@ -207,7 +207,7 @@
 
 <h1>3D Projection on Canvas</h1>
 <div class="layout">
-	<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
+	<canvas bind:this={canvasEl} id="canvas3D" width="500" height="500"></canvas>
 
 	<div class="controls">
 		<Slider labelText="Grid Size" fullWidth bind:value={gridSize} min={0} max={100} />
@@ -250,7 +250,14 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
+		align-items: center;
 		margin-top: 50px;
+	}
+
+	@media (min-width: 600px) {
+		.layout {
+			flex-direction: row;
+		}
 	}
 
 	.controls {
@@ -258,11 +265,20 @@
 		flex-direction: column;
 		padding: 0 10%;
 	}
+
+	@media (min-width: 600px) {
+		.controls {
+			max-height: 80vh;
+			overflow-y: scroll;
+		}
+	}
 	.additionalConfigText {
 		margin-top: 20px;
 	}
 	canvas {
 		margin: 0 auto;
 		display: block;
+		height: 600px;
+		width: 600px;
 	}
 </style>
