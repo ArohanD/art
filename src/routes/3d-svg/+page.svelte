@@ -1,28 +1,33 @@
 <script lang="ts">
 	import 'carbon-components-svelte/css/all.css';
-	import { Slider } from 'carbon-components-svelte';
-
+	import { Dropdown, Slider } from 'carbon-components-svelte';
 	import { onMount } from 'svelte';
+	import { zFnLib, type ZFnLibEntry } from './waveFns';
+	import type { DropdownItem } from 'carbon-components-svelte/src/Dropdown/Dropdown.svelte';
 
 	let canvasEl: HTMLCanvasElement;
-	let gridSize = 10;
-	let maxHeight = 100;
+	let gridSize = 15;
+	let maxHeight = 15;
+
+	let Zfn: undefined | ((args: { x: number; y: number }) => number);
+	let additionalConfigs = [];
 
 	onMount(() => {
-		draw({ gridSize, maxHeight });
+		// draw({ gridSize, maxHeight });
+		setAdditionalConfigs(zFnLib['mountains']);
 	});
 
-	$: if(canvasEl) draw({ gridSize, maxHeight });
+	$: if (canvasEl) draw({ gridSize, maxHeight });
 
-	function draw({ gridSize = 10, maxHeight = 100 }: { gridSize: number, maxHeight: number}) {
-		const step = Math.PI / gridSize; // Step size in radians, for a full sine wave cycle
+	function draw({ gridSize = 10, maxHeight = 100 }: { gridSize: number; maxHeight: number }) {
 		const ctx = canvasEl.getContext('2d');
 		const width = canvasEl.width;
 		const height = canvasEl.height;
+		const step = width / gridSize; // Step size in radians, for a full sine wave cycle
 
 		if (ctx) {
 			ctx.clearRect(0, 0, width, height);
-			drawNet({ ctx, width, height, gridSize, step, maxHeight});
+			drawNet({ ctx, width, height, gridSize, step, maxHeight });
 		} else console.error('Canvas context not found');
 	}
 
@@ -77,13 +82,14 @@
 		step: number;
 		maxHeight: number;
 	}) {
+		if (!Zfn) throw new Error('Zfn is not defined');
 		const projectFn = getLoadedProjectFn({ height, width });
 		const drawLine = contextualizeDrawLine(ctx);
 		for (let i = -gridSize; i <= gridSize; i++) {
 			for (let j = -gridSize; j <= gridSize; j++) {
 				const x = i * gridSize; // Scale for visibility
 				const y = j * gridSize;
-				const z = Math.sin(i * step) * Math.cos(j * step) * maxHeight; // Scale Z for better visibility
+				const z = Zfn({ x: i * step, y: j * step }) * maxHeight; // Scale Z for better visibility
 
 				// Project 3D point to 2D
 				const p = projectFn(x, y, z);
@@ -92,19 +98,37 @@
 				if (i > -gridSize) {
 					// Connect horizontally
 					const prevX = (i - 1) * gridSize;
-					const prevZ = Math.sin((i - 1) * step) * Math.cos(j * step) * maxHeight;
+					const prevZ = Zfn({ x: (i - 1) * step, y: j * step }) * maxHeight;
 					const prevP = projectFn(prevX, y, prevZ);
 					drawLine(prevP.x, prevP.y, p.x, p.y);
 				}
 				if (j > -gridSize) {
 					// Connect vertically
 					const prevY = (j - 1) * gridSize;
-					const prevZ = Math.sin(i * step) * Math.cos((j - 1) * step) * maxHeight;
+					const prevZ = Zfn({ x: i * step, y: (j - 1) * step }) * maxHeight;
 					const prevP = projectFn(x, prevY, prevZ);
 					drawLine(prevP.x, prevP.y, p.x, p.y);
 				}
 			}
 		}
+	}
+
+	function handleSelectionChange(e: CustomEvent<{ selectedId: any; selectedItem: DropdownItem }>) {
+		const libEntry = zFnLib[e.detail.selectedItem.text];
+		if (!libEntry) throw new Error('No lib entry found');
+		setAdditionalConfigs(libEntry);
+	}
+
+	function setAdditionalConfigs({ params, zFn }: ZFnLibEntry) {
+		additionalConfigs = params;
+		const defaultParams = additionalConfigs.reduce(
+			(acc: Record<string, any>, { paramName, defaultVal }) => {
+				acc[paramName] = defaultVal;
+				return acc;
+			},
+			{}
+		);
+		Zfn = zFn(defaultParams);
 	}
 </script>
 
@@ -114,10 +138,22 @@
 
 <h1>3D Fishing Net on Canvas</h1>
 <div class="layout">
-	<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
+	{#if Zfn}
+		<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
+	{/if}
 	<div class="controls">
-		<Slider labelText="Grid Size" fullWidth bind:value={gridSize} min={10} max={100} />
-		<Slider labelText="Max Height" fullWidth bind:value={maxHeight} min={100} max={1000} />
+		<Slider labelText="Grid Size" fullWidth bind:value={gridSize} min={0} max={100} />
+		<Slider labelText="Max Height" fullWidth bind:value={maxHeight} min={0} max={1000} />
+		<Dropdown
+			titleText="Z Function"
+			selectedId="0"
+			on:select={handleSelectionChange}
+			items={Object.keys(zFnLib).map((key, i) => ({
+				id: i.toString(),
+				text: key,
+				item: zFnLib[key]
+			}))}
+		/>
 	</div>
 </div>
 
