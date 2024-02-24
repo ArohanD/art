@@ -202,10 +202,10 @@
 </script>
 
 <head>
-	<title>3D Fishing Net on Canvas</title>
+	<title>3D Projection on Canvas</title>
 </head>
 
-<h1>3D Fishing Net on Canvas</h1>
+<h1>3D Projection on Canvas</h1>
 <div class="layout">
 	<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
 
