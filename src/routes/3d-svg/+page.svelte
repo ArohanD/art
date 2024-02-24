@@ -2,24 +2,23 @@
 	import 'carbon-components-svelte/css/all.css';
 	import { Dropdown, Slider } from 'carbon-components-svelte';
 	import { onMount } from 'svelte';
-	import { zFnLib, type ZFnLibEntry } from './waveFns';
-	import type { DropdownItem } from 'carbon-components-svelte/src/Dropdown/Dropdown.svelte';
+	import { zFnLib, type ZFnLibEntry, type ZFnLibParam } from './waveFns';
 
 	let canvasEl: HTMLCanvasElement;
 	let gridSize = 15;
 	let maxHeight = 15;
 
-	let Zfn: undefined | ((args: { x: number; y: number }) => number);
-	let additionalConfigs = [];
+	let zFn: undefined | ((args: { x: number; y: number }) => number);
+	let additionalConfigs: ZFnLibParam[] = [];
 
 	onMount(() => {
-		// draw({ gridSize, maxHeight });
-		setAdditionalConfigs(zFnLib['mountains']);
+		setZFn('mountains');
 	});
 
 	$: if (canvasEl) draw({ gridSize, maxHeight });
 
 	function draw({ gridSize = 10, maxHeight = 100 }: { gridSize: number; maxHeight: number }) {
+		console.log('Drawing');
 		const ctx = canvasEl.getContext('2d');
 		const width = canvasEl.width;
 		const height = canvasEl.height;
@@ -82,14 +81,15 @@
 		step: number;
 		maxHeight: number;
 	}) {
-		if (!Zfn) throw new Error('Zfn is not defined');
+		if (!zFn) throw new Error('Zfn is not defined');
+		
 		const projectFn = getLoadedProjectFn({ height, width });
 		const drawLine = contextualizeDrawLine(ctx);
 		for (let i = -gridSize; i <= gridSize; i++) {
 			for (let j = -gridSize; j <= gridSize; j++) {
 				const x = i * gridSize; // Scale for visibility
 				const y = j * gridSize;
-				const z = Zfn({ x: i * step, y: j * step }) * maxHeight; // Scale Z for better visibility
+				const z = zFn({ x: i * step, y: j * step }) * maxHeight; // Scale Z for better visibility
 
 				// Project 3D point to 2D
 				const p = projectFn(x, y, z);
@@ -98,14 +98,14 @@
 				if (i > -gridSize) {
 					// Connect horizontally
 					const prevX = (i - 1) * gridSize;
-					const prevZ = Zfn({ x: (i - 1) * step, y: j * step }) * maxHeight;
+					const prevZ = zFn({ x: (i - 1) * step, y: j * step }) * maxHeight;
 					const prevP = projectFn(prevX, y, prevZ);
 					drawLine(prevP.x, prevP.y, p.x, p.y);
 				}
 				if (j > -gridSize) {
 					// Connect vertically
 					const prevY = (j - 1) * gridSize;
-					const prevZ = Zfn({ x: i * step, y: (j - 1) * step }) * maxHeight;
+					const prevZ = zFn({ x: i * step, y: (j - 1) * step }) * maxHeight;
 					const prevP = projectFn(x, prevY, prevZ);
 					drawLine(prevP.x, prevP.y, p.x, p.y);
 				}
@@ -113,22 +113,25 @@
 		}
 	}
 
-	function handleSelectionChange(e: CustomEvent<{ selectedId: any; selectedItem: DropdownItem }>) {
-		const libEntry = zFnLib[e.detail.selectedItem.text];
+	function setZFn(selectedFnName:string) {
+		const libEntry = zFnLib[selectedFnName];
 		if (!libEntry) throw new Error('No lib entry found');
-		setAdditionalConfigs(libEntry);
+		const { newZFn } = setAdditionalConfigs(libEntry);
+		zFn = newZFn;
 	}
 
-	function setAdditionalConfigs({ params, zFn }: ZFnLibEntry) {
+	const reduceParamsToObj = (params: ZFnLibParam[]) =>
+		params.reduce((acc: Record<string, any>, { paramName, defaultVal }) => {
+			acc[paramName] = defaultVal;
+			return acc;
+		}, {});
+
+	function setAdditionalConfigs({ params, zFnCreator }: ZFnLibEntry) {
 		additionalConfigs = params;
-		const defaultParams = additionalConfigs.reduce(
-			(acc: Record<string, any>, { paramName, defaultVal }) => {
-				acc[paramName] = defaultVal;
-				return acc;
-			},
-			{}
-		);
-		Zfn = zFn(defaultParams);
+		const defaultParams = reduceParamsToObj(additionalConfigs);
+		return {
+			newZFn: zFnCreator(defaultParams),
+		};
 	}
 </script>
 
@@ -138,7 +141,7 @@
 
 <h1>3D Fishing Net on Canvas</h1>
 <div class="layout">
-	{#if Zfn}
+	{#if zFn}
 		<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
 	{/if}
 	<div class="controls">
@@ -147,13 +150,29 @@
 		<Dropdown
 			titleText="Z Function"
 			selectedId="0"
-			on:select={handleSelectionChange}
+			on:select={(e) => setZFn(e.detail.selectedItem.text)}
 			items={Object.keys(zFnLib).map((key, i) => ({
 				id: i.toString(),
 				text: key,
 				item: zFnLib[key]
 			}))}
 		/>
+		<h4 class="additionalConfigText">Additional Configuration</h4>
+		{#each additionalConfigs as { paramName, defaultVal, displayName }, i}
+			<Slider
+				labelText={displayName}
+				fullWidth
+				bind:value={defaultVal}
+				min={0}
+				max={5}
+				step={0.1}
+				on:change={(e) => {
+					const val = +e.detail.toFixed(2);
+					const newAdditionalConfigs = [...additionalConfigs];
+					newAdditionalConfigs[i].defaultVal = val;
+				}}
+			/>
+		{/each}
 	</div>
 </div>
 
@@ -170,7 +189,9 @@
 		flex-direction: column;
 		padding: 0 10%;
 	}
-
+	.additionalConfigText {
+		margin-top: 20px;
+	}
 	canvas {
 		margin: 0 auto;
 		display: block;

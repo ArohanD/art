@@ -47,7 +47,7 @@ function mountainRange({
 	asymmetryY = 1.3,
 	detailAmplitude = 0.1,
 	detailFrequency = 3,
-	nonlinearCombination = 0.05,
+	nonlinearCombination = 0.1,
 	maxHeight = 10
 }) {
 	return function ({ x, y }: { x: number; y: number }) {
@@ -74,14 +74,16 @@ function mountainRange({
 	};
 }
 
+export type ZFnLibParam = {
+    paramName: string;
+    displayName: string;
+    type: 'number';
+    defaultVal: number;
+};
+
 export type ZFnLibEntry = {
-	params: {
-		paramName: string;
-		displayName: string;
-		type: 'number';
-		defaultVal: number;
-	}[];
-	zFn: (...args: any[]) => ({ x, y }: { x: number; y: number }) => number;
+	params: ZFnLibParam[];
+	zFnCreator: (...args: any[]) => ({ x, y }: { x: number; y: number }) => number;
 };
 
 export const zFnLib: {
@@ -109,10 +111,10 @@ export const zFnLib: {
 				paramName: 'nonlinearCombination',
 				displayName: 'Nonlinear Combination',
 				type: 'number',
-				defaultVal: 0.05
+				defaultVal: 0.1
 			}
 		],
-		zFn: mountainRange
+		zFnCreator: mountainRange
 	},
     mountains_2: {
 		params: [
@@ -136,9 +138,9 @@ export const zFnLib: {
 				paramName: 'nonlinearCombination',
 				displayName: 'Nonlinear Combination',
 				type: 'number',
-				defaultVal: 0.05
+				defaultVal: 0.1
 			}
 		],
-		zFn: mountainRange
+		zFnCreator: mountainRange
 	}
 };
