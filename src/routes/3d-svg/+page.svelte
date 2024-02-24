@@ -8,17 +8,16 @@
 	let gridSize = 15;
 	let maxHeight = 15;
 
-	let zFn: undefined | ((args: { x: number; y: number }) => number);
+	let zFnConfig: ZFnLibEntry;
 	let additionalConfigs: ZFnLibParam[] = [];
 
 	onMount(() => {
-		setZFn('mountains');
+		setZFnEntry('mountains');
 	});
 
-	$: if (canvasEl) draw({ gridSize, maxHeight });
+	$: if (additionalConfigs && canvasEl) draw({ gridSize, maxHeight });
 
 	function draw({ gridSize = 10, maxHeight = 100 }: { gridSize: number; maxHeight: number }) {
-		console.log('Drawing');
 		const ctx = canvasEl.getContext('2d');
 		const width = canvasEl.width;
 		const height = canvasEl.height;
@@ -81,10 +80,9 @@
 		step: number;
 		maxHeight: number;
 	}) {
-		if (!zFn) throw new Error('Zfn is not defined');
-		
 		const projectFn = getLoadedProjectFn({ height, width });
 		const drawLine = contextualizeDrawLine(ctx);
+		const zFn = zFnConfig.zFnCreator(reduceParamsToObj(additionalConfigs));
 		for (let i = -gridSize; i <= gridSize; i++) {
 			for (let j = -gridSize; j <= gridSize; j++) {
 				const x = i * gridSize; // Scale for visibility
@@ -113,11 +111,11 @@
 		}
 	}
 
-	function setZFn(selectedFnName:string) {
+	function setZFnEntry(selectedFnName: string) {
 		const libEntry = zFnLib[selectedFnName];
 		if (!libEntry) throw new Error('No lib entry found');
-		const { newZFn } = setAdditionalConfigs(libEntry);
-		zFn = newZFn;
+		zFnConfig = libEntry;
+		additionalConfigs = libEntry.params;
 	}
 
 	const reduceParamsToObj = (params: ZFnLibParam[]) =>
@@ -125,14 +123,6 @@
 			acc[paramName] = defaultVal;
 			return acc;
 		}, {});
-
-	function setAdditionalConfigs({ params, zFnCreator }: ZFnLibEntry) {
-		additionalConfigs = params;
-		const defaultParams = reduceParamsToObj(additionalConfigs);
-		return {
-			newZFn: zFnCreator(defaultParams),
-		};
-	}
 </script>
 
 <head>
@@ -141,16 +131,15 @@
 
 <h1>3D Fishing Net on Canvas</h1>
 <div class="layout">
-	{#if zFn}
-		<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
-	{/if}
+	<canvas bind:this={canvasEl} id="canvas3D" width="600" height="600"></canvas>
+
 	<div class="controls">
 		<Slider labelText="Grid Size" fullWidth bind:value={gridSize} min={0} max={100} />
 		<Slider labelText="Max Height" fullWidth bind:value={maxHeight} min={0} max={1000} />
 		<Dropdown
 			titleText="Z Function"
 			selectedId="0"
-			on:select={(e) => setZFn(e.detail.selectedItem.text)}
+			on:select={(e) => setZFnEntry(e.detail.selectedItem.text)}
 			items={Object.keys(zFnLib).map((key, i) => ({
 				id: i.toString(),
 				text: key,
@@ -170,6 +159,7 @@
 					const val = +e.detail.toFixed(2);
 					const newAdditionalConfigs = [...additionalConfigs];
 					newAdditionalConfigs[i].defaultVal = val;
+					additionalConfigs = newAdditionalConfigs;
 				}}
 			/>
 		{/each}
